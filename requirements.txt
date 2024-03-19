@@ -1,0 +1,13 @@
+streamlit
+langchain
+langchain
+qdrant-client
+openai
+pypdf
+pypdf2
+langchain-openai
+langchain-community
+uuid
+tiktoken
+pikepdf
+python-dotenv
