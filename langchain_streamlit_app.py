@@ -19,6 +19,52 @@ from dotenv import load_dotenv
 
 import time
 
+# Read from .env file 
+qdrant_host = os.getenv('QDRANT_HOST')
+
+# Connect to the qdrant client
+client = QdrantClient(url=qdrant_host)
+
+# Function for querying vector points and retrieving their meta data
+def extract_meta_data(sources):
+    retrieved_docs = []
+    list_of_metadata = []
+    metadata = {}
+
+    for source in sources:
+        doc_id = source.metadata['_id']
+        collection_name = source.metadata['_collection_name']
+
+        # Query every doc and append to list
+        document = client.retrieve(
+            collection_name=collection_name,
+            ids=[doc_id],
+            with_payload=True
+        )
+
+        retrieved_docs.append(document)
+    
+    for each_doc in retrieved_docs:
+        record = each_doc[0]
+        
+        # Destructuring the data type
+        retrieved_payload = record.payload
+
+        source_doc = retrieved_payload['source']
+        page_content = retrieved_payload['page_content']
+        page_number = retrieved_payload['page']
+
+        metadata = {
+            "Source Document" :source_doc,
+            "Page Content" :page_content,
+            "Page Number" : page_number
+        }
+
+        list_of_metadata.append(metadata)
+
+    return list_of_metadata
+
+
 
 def main():
     # Load the environment variables
@@ -34,15 +80,11 @@ def main():
     # Grab the user question
     user_question = st.text_input("Ask me anything crypto regulatory question!")
 
-    qdrant_host = os.getenv('QDRANT_HOST')
-
-    # Connect to the qdrant client
-    client = QdrantClient(url=qdrant_host)
 
     # Initialize the document store
     doc_store = Qdrant(
         client=client,
-        collection_name='test 768-dim', # Can change the collection here
+        collection_name='test 768-dim', # Can change the collection here 
         embeddings = embeddings_model
     )
 
@@ -56,17 +98,43 @@ def main():
     )
 
     if user_question:
-        st.write(f'Question: {user_question}')
+        st.markdown(f':green[Question:] {user_question}')
 
         # Hook up the user question
         response = qa.invoke(user_question)
 
+        st.markdown(':green[Response:]')
         st.write(response['result'])
 
+        time.sleep(1)
 
-        # print(f"Response: {response['result']}")
+        # Print sources below
+        st.header(':red[Sources used:]')
 
+        sources = response['source_documents']
+
+        # for source in sources:
+        #     st.markdown(f':green[{source.page_content}]')
+
+        sources = response['source_documents']
         
+
+        # call extract metadata here
+        list_of_metadata = extract_meta_data(sources)
+
+        # print(len(list_of_metadata))
+        
+        for payload in list_of_metadata:
+            source_doc = payload['Source Document']
+            page_content = payload['Page Content']
+            page_number = payload['Page Number']
+
+            st.markdown(f':green[Source Document:] {source_doc}')
+            st.markdown(f':green[Page Number] {page_number}')
+            st.markdown(f':green[Page Content:] {page_content}')
+            st.divider()
+        
+
 
 
 if __name__ == '__main__':
