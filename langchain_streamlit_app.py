@@ -64,40 +64,71 @@ def extract_meta_data(sources):
 
     return list_of_metadata
 
+def get_list_of_collections():
+
+    # Fetch collections from qdrant store
+    collections = client.get_collections()
+    
+    list_of_collections = collections.collections
+
+    collections = [] #Initialize empty collection for appending collection_names
+
+    for collection in list_of_collections:
+        collections.append(collection.name)
+    
+    return collections
 
 
 def main():
     # Load the environment variables
     load_dotenv()
 
-    # Configure the embedding model
-    embeddings_model = OpenAIEmbeddings(model='text-embedding-3-small', dimensions=768)
+    
     st.set_page_config(page_title='Crypto compliance')
 
     st.header('Ask Crypto Regulatory Compliance Question!')
     st.write("Langchain pipeline")
+
+    # Get list of collections 
+    collections = get_list_of_collections() # Invoke func for getting names of collections
+
+    # print(collections)
+    vector_store_to_use = st.selectbox(
+        'Please select a vector store',
+        (collections)
+    )
+    
+    dimensions_to_use = st.selectbox(
+        'Select number of vector embeddings to use',
+        (768, 1536)
+    )
     
     # Grab the user question
     user_question = st.text_input("Ask me anything crypto regulatory question!")
 
 
-    # Initialize the document store
-    doc_store = Qdrant(
-        client=client,
-        collection_name='test 768-dim', # Can change the collection here 
-        embeddings = embeddings_model
-    )
-
-    llm = OpenAI()
-
-    qa = RetrievalQA.from_chain_type(
-        llm = llm,
-        chain_type="stuff",
-        retriever= doc_store.as_retriever(),
-        return_source_documents=True
-    )
-
+    
     if user_question:
+
+        # Configure the embedding model
+        embeddings_model = OpenAIEmbeddings(model='text-embedding-3-small', dimensions=dimensions_to_use)
+
+        # Initialize the document store
+        doc_store = Qdrant(
+            client=client,
+            collection_name= vector_store_to_use, # Can change the collection here 
+            embeddings = embeddings_model
+        )
+
+        llm = OpenAI()
+
+        qa = RetrievalQA.from_chain_type(
+            llm = llm,
+            chain_type="stuff",
+            retriever= doc_store.as_retriever(),
+            return_source_documents=True
+        )
+
         st.markdown(f':green[Question:] {user_question}')
 
         # Hook up the user question
